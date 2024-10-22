@@ -34,6 +34,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.URLConnection;
+import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.zip.GZIPInputStream;
@@ -54,6 +55,11 @@ import org.json.JSONObject;
 import android.net.Uri;
 import android.os.Build;
 import android.webkit.CookieManager;
+
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 public class FileTransfer extends CordovaPlugin {
 
@@ -651,6 +657,43 @@ public class FileTransfer extends CordovaPlugin {
         return arg;
     }
 
+    static {
+        try {
+            trustAllHttpsCertificates();
+            HttpsURLConnection.setDefaultHostnameVerifier
+                    (
+                            (urlHostName, session) -> true
+                    );
+        } catch (Exception e) {
+        }
+    }
+
+    private static void trustAllHttpsCertificates() {
+        try {
+            TrustAllManager[] trustAllCerts = new TrustAllManager[1];
+            trustAllCerts[0] = new TrustAllManager();
+            SSLContext sc = SSLContext.getInstance("SSL");
+            sc.init(null, (TrustManager[]) trustAllCerts, null);
+            HttpsURLConnection.setDefaultSSLSocketFactory(
+                    sc.getSocketFactory());
+        }
+        catch (Exception e) {}
+    }
+
+    private static class TrustAllManager implements X509TrustManager {
+        public X509Certificate[] getAcceptedIssuers() {
+            return null;
+        }
+
+        public void checkServerTrusted(X509Certificate[] certs,
+                                       String authType) {
+        }
+
+        public void checkClientTrusted(X509Certificate[] certs,
+                                       String authType) {
+        }
+    }
+
     /**
      * Downloads a file form a given URL and saves it to the specified directory.
      *
@@ -693,12 +736,12 @@ public class FileTransfer extends CordovaPlugin {
             }
         }
 
-        if (!Boolean.TRUE.equals(shouldAllowRequest)) {
-            LOG.w(LOG_TAG, "The Source URL is not in the Allow List: '" + source + "'");
-            JSONObject error = createFileTransferError(CONNECTION_ERR, source, target, null, 401, null);
-            callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.IO_EXCEPTION, error));
-            return;
-        }
+        // if (!Boolean.TRUE.equals(shouldAllowRequest)) {
+        //     LOG.w(LOG_TAG, "The Source URL is not in the Allow List: '" + source + "'");
+        //     JSONObject error = createFileTransferError(CONNECTION_ERR, source, target, null, 401, null);
+        //     callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.IO_EXCEPTION, error));
+        //     return;
+        // }
 
         final RequestContext context = new RequestContext(source, target, callbackContext);
         synchronized (activeRequests) {
